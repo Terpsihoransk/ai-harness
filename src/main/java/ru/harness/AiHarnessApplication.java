@@ -15,7 +15,7 @@ public class AiHarnessApplication {
 
 	private static final Logger log = LoggerFactory.getLogger(AiHarnessApplication.class);
 
-	private static final String STARTUP_PROMPT = "Привет! Ответь одним предложением, кто ты.";
+	private static final String DEFAULT_PROMPT = "Привет! Ответь одним предложением, кто ты.";
 
 	static void main(String[] args) {
 		SpringApplication.run(AiHarnessApplication.class, args);
@@ -35,11 +35,15 @@ public class AiHarnessApplication {
 	                               @Value("${spring.ai.ollama.base-url}") String baseUrl,
 	                               @Value("${spring.ai.ollama.chat.model}") String model) {
 		return args -> {
+			// Запрос можно передать аргументами командной строки, без правки кода:
+			// mvnw spring-boot:run -Dspring-boot.run.arguments="Меня зовут Саша"
+			// Если аргументов нет — идёт дефолтный запрос.
+			String prompt = args.length > 0 ? String.join(" ", args) : DEFAULT_PROMPT;
 			log.info("Ollama base-url: {}, model: {}", baseUrl, model);
-			log.info("→ запрос: {}", STARTUP_PROMPT);
+			log.info("→ запрос: {}", prompt);
 			long startedAt = System.currentTimeMillis();
 			try {
-				String answer = agent.run(STARTUP_PROMPT);
+				String answer = agent.run(prompt);
 				long elapsed = System.currentTimeMillis() - startedAt;
 				System.out.println("=== Ответ модели (" + elapsed + " мс) ===");
 				System.out.println(answer);
