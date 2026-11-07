@@ -7,6 +7,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Profile;
 import ru.harness.agent.Agent;
 
 @SpringBootApplication
@@ -23,8 +24,13 @@ public class AiHarnessApplication {
 	/**
 	 * Минимальный прогон при старте: один запрос к модели и печать ответа.
 	 * Нужен, чтобы убедиться, что Ollama доступна и модель отвечает.
+	 *
+	 * <p>В тестах бин не создаётся: {@code @SpringBootTest} запускает
+	 * {@code CommandLineRunner}-бины, и без этого контекстный тест ходил бы
+	 * в живую модель (в CI её нет — получили бы Connection refused).
 	 */
 	@Bean
+	@Profile("!test")
 	CommandLineRunner startupProbe(Agent agent,
 	                               @Value("${spring.ai.ollama.base-url}") String baseUrl,
 	                               @Value("${spring.ai.ollama.chat.model}") String model) {
