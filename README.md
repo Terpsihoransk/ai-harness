@@ -1,7 +1,7 @@
 # Ai harness 🖤
 
 Агент для работы с кодом: Java 25, Spring Boot 4, Spring AI 2.
-Модель локальная, Ollama на порту 11431.
+Модель локальная, Ollama на порту 11432.
 
 ## Если указываем в docker-compose видеокарту nvidia
 

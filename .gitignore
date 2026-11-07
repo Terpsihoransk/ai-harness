@@ -36,3 +36,4 @@ build/
 /ollama/
 /.env
 /plans/
+/.tmp-cfg/

@@ -38,7 +38,7 @@ services:
         condition: service_healthy
     environment:
       - OLLAMA_HOST=http://ollama:11434
-    command: [ "pull", "qwen3:4b" ]
+    command: [ "pull", "qwen3.5:4b" ]
 
 networks:
   harness-net:
