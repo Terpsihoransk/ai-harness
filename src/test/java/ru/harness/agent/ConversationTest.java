@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.MessageType;
-import ru.harness.Conversation;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
