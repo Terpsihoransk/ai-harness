@@ -37,3 +37,4 @@ build/
 /.env
 /plans/
 /.tmp-cfg/
+/lesson-00/
