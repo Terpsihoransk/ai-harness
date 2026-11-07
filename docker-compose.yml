@@ -1,0 +1,45 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: harness-ollama
+    restart: unless-stopped
+    ports:
+      - "11432:11434"
+    volumes:
+      - ./ollama:/root/.ollama
+    networks:
+      - harness-net
+    environment:
+      # Модель не выгружается между ходами агента: иначе каждый ход
+      # начинается с повторной загрузки весов в VRAM.
+      - OLLAMA_KEEP_ALIVE=30m
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+    healthcheck:
+      test: [ "CMD", "ollama", "list" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ollama-pull-model:
+    image: ollama/ollama:latest
+    container_name: harness-ollama-pull
+    volumes:
+      - ./ollama:/root/.ollama
+    networks:
+      - harness-net
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    command: [ "pull", "qwen3:4b" ]
+
+networks:
+  harness-net:
+    name: harness-net

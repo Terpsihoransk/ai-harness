@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: harness
+  main:
+    # Агент живёт в терминале, а не в вебе: без этого Boot поднял бы сервлет-контейнер,
+    # если веб-стартер притянется транзитивно.
+    web-application-type: none
+    banner-mode: off
+  ai:
+    ollama:
+      base-url: http://localhost:11432
+      chat:
+        think: false
+        temperature: 0.2
+        model: qwen3.5:4b
+
+harness.agent:
+  workspace-root: .
+  max-turns: 20
+
+
+logging:
+  level:
+    root: WARN
+    com.harness: INFO
+  pattern:
+    console: "%msg%n"
