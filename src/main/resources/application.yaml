@@ -10,7 +10,7 @@ spring:
     ollama:
       base-url: http://localhost:11432
       chat:
-        think: false
+        think: false # выключаем рассуждения
         temperature: 0.2
         model: qwen3.5:4b
 
@@ -18,10 +18,10 @@ harness.agent:
   workspace-root: .
   max-turns: 20
 
-
 logging:
   level:
     root: WARN
-    com.harness: INFO
+    ru.harness: INFO
+    org.springframework.ai: INFO
   pattern:
     console: "%msg%n"
