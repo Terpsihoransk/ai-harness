@@ -9,7 +9,7 @@ public interface Tool<I> {
     String name();
     String description();
     Class<I> inputType();
-    ToolResult call(I input);
+    ToolResult call(I input, ToolContext context);
     default boolean isReadOnly() { return true; }
     default String renderToolUseMessage(I input) { return tag(); }
     default String tag() { return "[" + name().toUpperCase(Locale.ROOT) + "]"; }

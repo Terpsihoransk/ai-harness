@@ -1,6 +1,7 @@
 package ru.harness.tool.impl;
 
 import org.jspecify.annotations.Nullable;
+import ru.harness.tool.ToolContext;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
 import ru.harness.tool.Tool;
@@ -52,16 +53,18 @@ public class GlobTool implements Tool<GlobTool.Input> {
     }
 
     @Override
-    public ToolResult call(Input input) {
+    public ToolResult call(Input input, ToolContext toolContext) {
         if (input.pattern() == null || input.pattern().isBlank()) {
             return ToolResult.error("не указан шаблон поиска");
         }
-
         Path root;
         try {
             root = input.path() == null ? workspaceGuard.root() : workspaceGuard.resolve(input.path());
         } catch (WorkspaceGuard.WorkspaceViolationException e) {
             return ToolResult.error(e.getMessage());
+        }
+        if (!Files.isDirectory(root)) {
+            return ToolResult.error("папка не найдена: " + input.path());
         }
         PathMatcher matcher;
         try {
@@ -69,7 +72,6 @@ public class GlobTool implements Tool<GlobTool.Input> {
         } catch (IllegalArgumentException e) {
             return ToolResult.error("непонятный шаблон '%s': %s".formatted(input.pattern(), e.getMessage()));
         }
-
         List<Path> found;
         try (Stream<Path> walk = Files.walk(root)) {
             found = walk.filter(Files::isRegularFile)
@@ -90,8 +92,8 @@ public class GlobTool implements Tool<GlobTool.Input> {
         if (found.size() > MAX_RESULTS) {
             out.append("… показаны первые %d совпадений, уточни шаблон".formatted(MAX_RESULTS));
         }
-
         return ToolResult.ok(out.toString());
+
     }
 
     @Override

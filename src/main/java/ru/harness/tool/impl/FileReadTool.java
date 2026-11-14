@@ -4,6 +4,7 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
 import ru.harness.tool.Tool;
+import ru.harness.tool.ToolContext;
 import ru.harness.tool.ToolResult;
 import ru.harness.tool.WorkspaceGuard;
 
@@ -24,6 +25,24 @@ public class FileReadTool implements Tool<FileReadTool.Input> {
     public FileReadTool(WorkspaceGuard workspaceGuard) {
         this.workspaceGuard = workspaceGuard;
     }
+
+    /** Формат {@code cat -n}: номер строки, табуляция, содержимое. */
+    private String render(List<String> lines, int from, int to) {
+        StringBuilder out = new StringBuilder();
+        for (int i = from; i <= to; i++) {
+            String line = lines.get(i - 1);
+            if (line.length() > MAX_LINE_LENGTH) {
+                line = line.substring(0, MAX_LINE_LENGTH) + "… (строка обрезана)";
+            }
+            out.append(i).append('\t').append(line).append('\n');
+        }
+        if (to < lines.size()) {
+            out.append("… показаны строки %d-%d из %d. Используй offset, чтобы прочитать дальше."
+                    .formatted(from, to, lines.size()));
+        }
+        return out.toString();
+    }
+
 
     @Override
     public String name() {
@@ -54,9 +73,8 @@ public class FileReadTool implements Tool<FileReadTool.Input> {
     }
 
     @Override
-    public ToolResult call(Input input) {
+    public ToolResult call(Input input, ToolContext context) {
         Path pathToFile;
-
         try {
             pathToFile = workspaceGuard.resolve(input.filePath());
         } catch (WorkspaceGuard.WorkspaceViolationException e) {
@@ -68,20 +86,19 @@ public class FileReadTool implements Tool<FileReadTool.Input> {
         if (Files.isDirectory(pathToFile)) {
             return ToolResult.error(input.filePath() + " — это папка, а не файл");
         }
-
         List<String> lines;
         try {
             lines = Files.readAllLines(pathToFile);
         } catch (MalformedInputException e) {
             return ToolResult.error("файл не текстовый: " + input.filePath());
         } catch (IOException e) {
-            return ToolResult.error("не удалось прочитать %s: %s".formatted(input.filePath(), e.getMessage()));
+            return  ToolResult.error("не удалось прочитать %s: %s".formatted(input.filePath(), e.getMessage()));
         }
+        context.readFileState().remember(pathToFile);
 
-        if (lines.isEmpty()) {
+        if(lines.isEmpty()) {
             return ToolResult.ok("файл пустой");
         }
-
         int from = Math.max(1, input.offset() == null ? 1 : input.offset());
         int limit = input.limit() == null ? DEFAULT_LIMIT : Math.max(1, input.limit());
         int to = Math.min(lines.size(), from + limit - 1);
@@ -89,27 +106,7 @@ public class FileReadTool implements Tool<FileReadTool.Input> {
             return ToolResult.error(
                     "в файле всего %d строк, запрошено начиная с %d".formatted(lines.size(), from));
         }
-
-        return ToolResult.ok(render(lines, from, to));
-    }
-
-    /**
-     * Формат {@code cat -n}: номер строки, табуляция, содержимое.
-     */
-    private String render(List<String> lines, int from, int to) {
-        StringBuilder out = new StringBuilder();
-        for (int i = from; i <= to; i++) {
-            String line = lines.get(i - 1);
-            if (line.length() > MAX_LINE_LENGTH) {
-                line = line.substring(0, MAX_LINE_LENGTH) + "… (строка обрезана)";
-            }
-            out.append(i).append('\t').append(line).append('\n');
-        }
-        if (to < lines.size()) {
-            out.append("… показаны строки %d-%d из %d. Используй offset, чтобы прочитать дальше."
-                    .formatted(from, to, lines.size()));
-        }
-        return out.toString();
+        return ToolResult.ok(render(lines,from,to));
     }
 
     public record Input(

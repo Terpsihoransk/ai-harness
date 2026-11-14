@@ -1,6 +1,8 @@
 package ru.harness.tool.impl;
 
 import ru.harness.agent.AgentProperties;
+import ru.harness.tool.FileStateCache;
+import ru.harness.tool.ToolContext;
 import ru.harness.tool.ToolResult;
 import ru.harness.tool.WorkspaceGuard;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,6 +20,8 @@ class GlobToolTest {
     @TempDir
     Path workspace;
 
+    private final ToolContext context = new ToolContext(new FileStateCache());
+
     private GlobTool tool;
 
     @BeforeEach
@@ -26,7 +30,7 @@ class GlobToolTest {
     }
 
     private ToolResult glob(String pattern, String path) {
-        return tool.call(new GlobTool.Input(pattern, path));
+        return tool.call(new GlobTool.Input(pattern, path), context);
     }
 
     private void create(String relativePath) throws IOException {
@@ -122,6 +126,6 @@ class GlobToolTest {
         ToolResult result = glob("*.java", "src/nowhere");
 
         assertThat(result.error()).isTrue();
-        assertThat(result.content()).contains("не удалось обойти папку");
+        assertThat(result.content()).contains("папка не найдена");
     }
 }

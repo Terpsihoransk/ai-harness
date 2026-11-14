@@ -4,6 +4,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import ru.harness.agent.AgentProperties;
+import ru.harness.tool.FileStateCache;
+import ru.harness.tool.ToolContext;
 import ru.harness.tool.ToolResult;
 import ru.harness.tool.WorkspaceGuard;
 
@@ -19,6 +21,8 @@ class FileReadToolTest {
     @TempDir
     Path workspace;
 
+    private final ToolContext context = new ToolContext(new FileStateCache());
+
     private FileReadTool tool;
 
     @BeforeEach
@@ -27,7 +31,7 @@ class FileReadToolTest {
     }
 
     private ToolResult read(String path, Integer offset, Integer limit) {
-        return tool.call(new FileReadTool.Input(path, offset, limit));
+        return tool.call(new FileReadTool.Input(path, offset, limit), context);
     }
 
     private void write(String name, int lines) throws IOException {
