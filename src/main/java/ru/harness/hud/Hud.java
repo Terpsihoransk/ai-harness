@@ -88,6 +88,7 @@ public class Hud {
                 agent.conversation().getClass().getSimpleName()));
         lines.put(BodyPart.DIAGNOSTIC_BUS, BootLine.of(BodyPart.DIAGNOSTIC_BUS, BootStatus.ONLINE,
                 "Agent Events: " + AgentEvent.class.getPermittedSubclasses().length));
+
         for (Tool<?> tool : tools) {
             BodyPart part = forToolName(tool.name());
             BootLine bootLine = lines.computeIfAbsent(part, BootLine::empty);
@@ -100,6 +101,5 @@ public class Hud {
 
         return List.copyOf(lines.values());
     }
-
 
 }

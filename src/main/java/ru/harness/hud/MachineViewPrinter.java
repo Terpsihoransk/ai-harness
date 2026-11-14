@@ -42,13 +42,19 @@ public class MachineViewPrinter {
 
     private static final String CONTEXT_FOOTER = Ansi.dim("  └─ ПЕРЕДАНО В НЕЙРОПРОЦЕССОР");
 
-    /** Колонка, до которой тянутся точки в boot-логе. */
+    /**
+     * Колонка, до которой тянутся точки в boot-логе.
+     */
     private static final int LABEL_WIDTH = 26;
 
-    /** Ширина текстовой колонки в панели контекста. */
+    /**
+     * Ширина текстовой колонки в панели контекста.
+     */
     private static final int CONTEXT_WIDTH = 64;
 
-    /** Колонка, до которой выравнивается «[1] СОЗДАТЕЛЬ ·····». */
+    /**
+     * Колонка, до которой выравнивается «[1] СОЗДАТЕЛЬ ·····».
+     */
     private static final int ROLE_WIDTH = 18;
 
     private final PrintStream out;
@@ -58,12 +64,16 @@ public class MachineViewPrinter {
         this(new PrintStream(System.out, true, StandardCharsets.UTF_8));
     }
 
-    /** Для тестов: вывод в буфер вместо консоли. */
+    /**
+     * Для тестов: вывод в буфер вместо консоли.
+     */
     MachineViewPrinter(PrintStream out) {
         this.out = out;
     }
 
-    /** Boot-последовательность целиком: шапка, строки подсистем, статус миссии. */
+    /**
+     * Boot-последовательность целиком: шапка, строки подсистем, статус миссии.
+     */
     void showBootLog(List<BootLine> lines) {
         String subsystems = lines.stream().map(line -> toString(line)).collect(joining(NEW_LINE));
 
@@ -128,7 +138,9 @@ public class MachineViewPrinter {
         print(panel);
     }
 
-    /** Единственное место, которое трогает поток вывода. Блок уходит целиком, а не построчно. */
+    /**
+     * Единственное место, которое трогает поток вывода. Блок уходит целиком, а не построчно.
+     */
     private void print(String... blocks) {
         out.println(String.join(NEW_LINE, blocks));
     }
@@ -178,7 +190,9 @@ public class MachineViewPrinter {
         return "%s %s %s   %s".formatted(Ansi.red("> " + label), Ansi.dim(dots), status, Ansi.dim("(" + detail + ")"));
     }
 
-    /** Одна реплика: «[1] СОЗДАТЕЛЬ ····· текст», продолжение — под текстом, а не под номером. */
+    /**
+     * Одна реплика: «[1] СОЗДАТЕЛЬ ····· текст», продолжение — под текстом, а не под номером.
+     */
     private List<String> historyEntry(int number, Message message) {
         String head = "[%d] %s ".formatted(number, role(message.getMessageType()));
         String prefix = head + ".".repeat(Math.max(1, ROLE_WIDTH - head.length())) + " ";
@@ -192,7 +206,9 @@ public class MachineViewPrinter {
         return lines;
     }
 
-    /** Левая направляющая панели. Правого края нет намеренно: он бы разъезжался на любой ширине окна. */
+    /**
+     * Левая направляющая панели. Правого края нет намеренно: он бы разъезжался на любой ширине окна.
+     */
     private static String rail(String content) {
         return Ansi.dim("  │ ") + content;
     }
@@ -214,7 +230,9 @@ public class MachineViewPrinter {
         return message.getText() == null ? "" : message.getText();
     }
 
-    /** Перенос по словам: слово целее строки. Длиннее ширины — режем, иначе панель разъедется. */
+    /**
+     * Перенос по словам: слово целее строки. Длиннее ширины — режем, иначе панель разъедется.
+     */
     private static List<String> wrap(String text) {
         List<String> lines = new ArrayList<>();
         for (String paragraph : text.lines().toList()) {

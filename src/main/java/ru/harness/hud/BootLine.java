@@ -29,4 +29,5 @@ record BootLine(BodyPart part, BootStatus status, Set<String> components) {
     static BootLine empty(BodyPart bodyPart) {
         return new BootLine(bodyPart, BootStatus.ONLINE, new LinkedHashSet<>());
     }
+
 }
