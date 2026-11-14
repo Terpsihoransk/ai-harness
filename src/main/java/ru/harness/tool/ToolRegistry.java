@@ -14,17 +14,18 @@ import java.util.Map;
 @Component
 public class ToolRegistry {
 
-    private final Map<String, Tool<?>> byName = new LinkedHashMap<>();
-    private final ApplicationEventPublisher publisher;
-    private final JsonHelper json = new JsonHelper();
-
     /** Сколько строк результата уезжает в событие — столько увидит человек. */
     private static final int PREVIEW_LINES = 3;
 
     /** Длинную строку обрезаем: в терминале она всё равно переносится. */
     private static final int PREVIEW_CHARS = 100;
 
-    public ToolRegistry(List<Tool<?>> tools, ApplicationEventPublisher applicationEventPublisher) {
+    private final Map<String, Tool<?>> byName = new LinkedHashMap<>();
+    private final ApplicationEventPublisher publisher;
+    private final JsonHelper json = new JsonHelper();
+    private final ToolContext context;
+
+    public ToolRegistry(List<Tool<?>> tools, ApplicationEventPublisher applicationEventPublisher, FileStateCache readFileState) {
         for (Tool<?> tool : tools) {
             Tool<?> clash = byName.put(tool.name(), tool);
             if (clash != null) {
@@ -35,6 +36,7 @@ public class ToolRegistry {
             }
         }
         this.publisher = applicationEventPublisher;
+        this.context = new ToolContext(readFileState);
     }
 
     public List<Tool<?>> tools() {
@@ -50,13 +52,7 @@ public class ToolRegistry {
         publisher.publishEvent(new AgentEvent.ToolCallStarted(toolName, describeCall(tool, arguments)));
         Instant toolStartedAt = Instant.now();
         ToolResult toolResult = invoke(tool, arguments);
-        publisher.publishEvent(new AgentEvent.ToolCallFinished(
-                toolName,
-                toolResult.error(),
-                toolResult.preview(PREVIEW_LINES, PREVIEW_CHARS),
-                Duration.between(toolStartedAt, Instant.now())));
-
-
+        publisher.publishEvent(new AgentEvent.ToolCallFinished(toolName,toolResult.error(),toolResult.preview(PREVIEW_LINES, PREVIEW_CHARS), Duration.between(toolStartedAt, Instant.now())));
         return toolResult;
     }
 
@@ -68,11 +64,12 @@ public class ToolRegistry {
             return ToolResult.error("не разобрать аргументы %s: %s".formatted(tool.name(), e.getMessage()));
         }
         try {
-            return tool.call(input);
+            return tool.call(input, context);
         } catch (Exception e) {
             return ToolResult.error("%s упал: %s".formatted(tool.name(), e));
         }
     }
+
 
     private <I> String describeCall(Tool<I> tool, String argumentsJson) {
         try {

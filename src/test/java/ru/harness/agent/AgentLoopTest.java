@@ -6,6 +6,7 @@ import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.MessageType;
 import org.springframework.ai.chat.messages.ToolResponseMessage;
 import ru.harness.tool.Tool;
+import ru.harness.tool.ToolContext;
 import ru.harness.tool.ToolResult;
 
 import java.util.ArrayList;
@@ -58,7 +59,7 @@ public class AgentLoopTest {
         }
 
         @Override
-        public ToolResult call(Input input) {
+        public ToolResult call(Input input, ToolContext context) {
             calls.add(input.value());
             return answer;
         }
@@ -157,4 +158,5 @@ public class AgentLoopTest {
         assertThat(toolMessageOf(model.lastPrompt().getInstructions()).getResponses().getFirst().responseData())
                 .contains("нет инструмента");
     }
+
 }
