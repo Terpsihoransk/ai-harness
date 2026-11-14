@@ -42,7 +42,6 @@ public class FileReadTool implements Tool<FileReadTool.Input> {
         return out.toString();
     }
 
-
     @Override
     public String name() {
         return "Read";
