@@ -20,125 +20,137 @@ class FileEditToolTest {
     @TempDir
     Path workspace;
 
-    private final ToolContext context = new ToolContext(new FileStateCache());
+    private final FileStateCache cache = new FileStateCache();
+    private final ToolContext context = new ToolContext(cache);
 
     private FileEditTool tool;
-    private FileReadTool readTool;
 
     @BeforeEach
     void setUp() {
-        WorkspaceGuard guard = new WorkspaceGuard(new AgentProperties(20, workspace.toString()));
-        tool = new FileEditTool(guard);
-        readTool = new FileReadTool(guard);
+        tool = new FileEditTool(new WorkspaceGuard(new AgentProperties(20, workspace.toString(), true)));
     }
 
-    private ToolResult edit(String path, String oldText, String newText) {
-        return edit(path, oldText, newText, null);
+    private ToolResult edit(String path, String oldString, String newString, Boolean replaceAll) {
+        return tool.call(new FileEditTool.Input(path, oldString, newString, replaceAll), context);
     }
 
-    private ToolResult edit(String path, String oldText, String newText, Boolean replaceAll) {
-        return tool.call(new FileEditTool.Input(path, oldText, newText, replaceAll), context);
-    }
-
-    /** Как в бою: правке предшествует чтение тем же инструментом. */
-    private void read(String path) {
-        readTool.call(new FileReadTool.Input(path, null, null), context);
+    /** Файл, который агент «прочитал»: именно так его кладёт в кэш {@code Read}. */
+    private Path прочитанный(String name, String content) throws IOException {
+        Path file = Files.writeString(workspace.resolve(name), content);
+        cache.remember(file);
+        return file;
     }
 
     @Test
-    void правитМногострочныйФрагментВФайлеСCrlf() throws IOException {
-        Path file = workspace.resolve("Sample.java");
-        Files.writeString(file, "class Sample {\r\n    int answer = 0;\r\n}\r\n");
+    void заменяетТочноеВхождение() throws IOException {
+        Path file = прочитанный("Agent.java", "class Agent {\n    int limit = 1;\n}\n");
 
-        read("Sample.java");
-        // Модель видит файл через Read, а тот отдаёт текст с LF — в oldString приходит LF.
-        ToolResult result = edit("Sample.java",
-                "class Sample {\n    int answer = 0;\n}",
-                "class Sample {\n    int answer = 42;\n}");
+        ToolResult result = edit("Agent.java", "int limit = 1;", "int limit = 20;", null);
 
         assertThat(result.error()).isFalse();
-        // Родной стиль файла сохраняется: на диске по-прежнему CRLF.
-        assertThat(Files.readString(file)).isEqualTo("class Sample {\r\n    int answer = 42;\r\n}\r\n");
+        assertThat(Files.readString(file)).contains("int limit = 20;");
+    }
+
+    /**
+     * Главный инвариант урока. Модель не видит диск: если файл не читали,
+     * она правит содержимое, которое придумала.
+     */
+    @Test
+    void непрочитанныйФайлПравитьНельзя() throws IOException {
+        Files.writeString(workspace.resolve("Agent.java"), "class Agent {}\n");
+
+        ToolResult result = edit("Agent.java", "class Agent {}", "class Agent { }", null);
+
+        assertThat(result.error()).isTrue();
+        assertThat(result.content()).contains("не был прочитан", "Read");
     }
 
     @Test
-    void правитФайлСLfНеПереводяЕгоВCrlf() throws IOException {
-        Path file = workspace.resolve("Lf.java");
-        Files.writeString(file, "int a = 1;\nint b = 2;\n");
+    void изменившийсяПослеЧтенияФайлПравитьНельзя() throws IOException {
+        Path file = прочитанный("Agent.java", "class Agent {}\n");
+        Files.writeString(file, "class Agent { void run() {} }\n");
+        Files.setLastModifiedTime(file, java.nio.file.attribute.FileTime.fromMillis(
+                Files.getLastModifiedTime(file).toMillis() + 5_000));
 
-        read("Lf.java");
-        ToolResult result = edit("Lf.java", "int a = 1;", "int a = 10;");
+        ToolResult result = edit("Agent.java", "class Agent {", "class Robot {", null);
+
+        assertThat(result.error()).isTrue();
+        assertThat(result.content()).contains("изменился");
+    }
+
+    /**
+     * Два одинаковых фрагмента — мы не угадываем, какой из них имелся в виду.
+     * Текст ошибки называет оба выхода: уточнить фрагмент или разрешить замену всех.
+     */
+    @Test
+    void неуникальныйФрагментЭтоОшибкаСДвумяВыходами() throws IOException {
+        прочитанный("Agent.java", "int x = 1;\nint x = 1;\n");
+
+        ToolResult result = edit("Agent.java", "int x = 1;", "int x = 2;", null);
+
+        assertThat(result.error()).isTrue();
+        assertThat(result.content()).contains("встречается 2", "replaceAll");
+    }
+
+    @Test
+    void сReplaceAllЗаменяетВсеВхождения() throws IOException {
+        Path file = прочитанный("Agent.java", "int x = 1;\nint x = 1;\n");
+
+        ToolResult result = edit("Agent.java", "int x = 1;", "int x = 2;", true);
 
         assertThat(result.error()).isFalse();
-        assertThat(Files.readString(file)).isEqualTo("int a = 10;\nint b = 2;\n");
-        assertThat(Files.readString(file)).doesNotContain("\r");
+        assertThat(Files.readString(file)).isEqualTo("int x = 2;\nint x = 2;\n");
+        assertThat(result.content()).contains("2");
     }
 
+    /**
+     * Промах правки ничего не стоит: файл цел, а модель получает текст,
+     * по которому видно, что делать дальше.
+     */
     @Test
-    void промахЕслиФрагментаНетВФайле() throws IOException {
-        Files.writeString(workspace.resolve("t.txt"), "Привет, мир\n");
-        read("t.txt");
+    void ненайденныйТекстЭтоОшибкаАФайлЦел() throws IOException {
+        Path file = прочитанный("Agent.java", "class Agent {}\n");
 
-        ToolResult result = edit("t.txt", "такого текста в файле нет", "замена");
+        ToolResult result = edit("Agent.java", "class Robot {}", "class Android {}", null);
 
         assertThat(result.error()).isTrue();
-        assertThat(result.content()).contains("текст не найден");
+        assertThat(result.content()).contains("текст не найден", "Read");
+        assertThat(Files.readString(file)).isEqualTo("class Agent {}\n");
     }
 
     @Test
-    void неуникальныйФрагментТребуетКонтекстаИлиReplaceAll() throws IOException {
-        Files.writeString(workspace.resolve("t.txt"), "x = 1;\nx = 1;\n");
-        read("t.txt");
+    void послеПравкиМожноПравитьСнова() throws IOException {
+        прочитанный("Agent.java", "int x = 1;\n");
 
-        ToolResult result = edit("t.txt", "x = 1;", "x = 2;");
+        edit("Agent.java", "int x = 1;", "int x = 2;", null);
+        ToolResult second = edit("Agent.java", "int x = 2;", "int x = 3;", null);
 
-        assertThat(result.error()).isTrue();
-        assertThat(result.content()).contains("встречается");
+        assertThat(second.error()).isFalse();
     }
 
     @Test
-    void replaceAllЗаменяетВсеВхождения() throws IOException {
-        Path file = workspace.resolve("t.txt");
-        Files.writeString(file, "x = 1;\nx = 1;\n");
-        read("t.txt");
+    void одинаковыеТекстыЭтоОшибка() throws IOException {
+        прочитанный("Agent.java", "int x = 1;\n");
 
-        ToolResult result = edit("t.txt", "x = 1;", "x = 2;", true);
-
-        assertThat(result.error()).isFalse();
-        assertThat(Files.readString(file)).isEqualTo("x = 2;\nx = 2;\n");
-    }
-
-    @Test
-    void писатьМожноТолькоПослеЧтения() throws IOException {
-        Files.writeString(workspace.resolve("t.txt"), "строка\n");
-
-        ToolResult result = edit("t.txt", "строка", "другая строка");
-
-        assertThat(result.error()).isTrue();
-        assertThat(result.content()).contains("не был прочитан");
-    }
-
-    @Test
-    void одинаковыйТекстЗаменятьНечем() {
-        ToolResult result = edit("t.txt", "одно и то же", "одно и то же");
+        ToolResult result = edit("Agent.java", "int x = 1;", "int x = 1;", null);
 
         assertThat(result.error()).isTrue();
         assertThat(result.content()).contains("совпадают");
     }
 
     @Test
-    void заПределыРабочейПапкиНеВыпускает() {
-        ToolResult result = edit("../../../etc/passwd", "a", "b");
+    void несуществующийФайлЭтоОшибка() {
+        ToolResult result = edit("нет-такого.java", "a", "b", null);
 
         assertThat(result.error()).isTrue();
-        assertThat(result.content()).contains("вне рабочей папки");
+        assertThat(result.content()).contains("файл не найден");
     }
 
     @Test
-    void схемаГенерируетсяИзRecordА() {
-        assertThat(tool.inputSchema())
-                .contains("filePath")
-                .contains("oldString")
-                .contains("newString");
+    void выходЗаРабочуюПапкуЗапрещён() {
+        ToolResult result = edit("../../чужое.java", "a", "b", null);
+
+        assertThat(result.error()).isTrue();
+        assertThat(result.content()).contains("вне рабочей папки");
     }
 }
