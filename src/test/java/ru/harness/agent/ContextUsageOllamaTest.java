@@ -1,5 +1,6 @@
 package ru.harness.agent;
 
+import ru.harness.TestPermissionConfig;
 import ru.harness.agent.event.AgentEvent;
 import ru.harness.tool.Tool;
 import org.junit.jupiter.api.RepeatedTest;
@@ -7,6 +8,7 @@ import org.junit.jupiter.api.Tag;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.util.List;
@@ -21,6 +23,7 @@ import static org.assertj.core.api.Assertions.fail;
  */
 @Tag("ollama")
 @SpringBootTest
+@Import(TestPermissionConfig.class)
 @ActiveProfiles("test")
 class ContextUsageOllamaTest {
 

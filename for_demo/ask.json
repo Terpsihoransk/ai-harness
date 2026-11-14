@@ -1,0 +1,9 @@
+{
+  "model": "qwen3.5:4b",
+  "prompt": "В чём смысл жизни? Ответь одним предложением",
+  "stream": false,
+  "think": false,
+  "options": {
+    "temperature": 0.2
+  }
+}

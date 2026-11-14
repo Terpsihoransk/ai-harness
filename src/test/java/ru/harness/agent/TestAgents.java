@@ -1,6 +1,7 @@
 package ru.harness.agent;
 
 import org.springframework.ai.chat.model.ChatModel;
+import ru.harness.TestPermissionConfig;
 import ru.harness.context.ContextManager;
 import ru.harness.context.GitStatusProvider;
 import ru.harness.context.ProjectMemoryLoader;
@@ -24,15 +25,29 @@ final class TestAgents {
     }
 
     static Agent agent(
-            ChatModel model, RecordingEventPublisher events, AgentProperties properties, Tool<?>... tools) {
-        ToolRegistry registry = new ToolRegistry(List.of(tools), events, new FileStateCache());
-        return new Agent(model, events, registry, new SpringAiToolAdapter(registry), properties,
+            ChatModel model,
+            RecordingEventPublisher events,
+            AgentProperties properties,
+            Tool<?>... tools) {
+        ToolRegistry registry =
+                TestPermissionConfig.registry(
+                        List.of(tools),
+                        events,
+                        new FileStateCache(),
+                        TestPermissionConfig.permissive(),
+                        TestPermissionConfig.allowOnce());
+        return new Agent(
+                model,
+                events,
+                registry,
+                new SpringAiToolAdapter(registry),
+                properties,
                 context(registry, properties));
     }
 
     /**
-     * Настоящий {@link ContextManager}, а не заглушка: весь контекст — обычные объекты
-     * с конструкторами, и собрать их руками дешевле, чем объяснять подмену.
+     * Настоящий {@link ContextManager}, а не заглушка: весь контекст — обычные объекты с
+     * конструкторами, и собрать их руками дешевле, чем объяснять подмену.
      */
     private static ContextManager context(ToolRegistry registry, AgentProperties properties) {
         return new ContextManager(

@@ -1,11 +1,13 @@
 package ru.harness.tool.impl;
 
-import org.springframework.ai.tool.annotation.ToolParam;
-import org.springframework.stereotype.Component;
+import ru.harness.permission.PathInspector;
+import ru.harness.permission.PermissionDecision;
 import ru.harness.tool.Tool;
 import ru.harness.tool.ToolContext;
 import ru.harness.tool.ToolResult;
 import ru.harness.tool.WorkspaceGuard;
+import org.springframework.ai.tool.annotation.ToolParam;
+import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -53,6 +55,11 @@ public class FileWriteTool implements Tool<FileWriteTool.Input> {
     }
 
     @Override
+    public PermissionDecision checkPermissions(Input input, ToolContext context) {
+       return PathInspector.checkWrite(workspaceGuard,input.filePath(),context.permissions());
+    }
+
+    @Override
     public ToolResult call(Input input, ToolContext context) {
         if (input.filePath() == null || input.filePath().isBlank()) {
             return ToolResult.error("не указан файл: заполни поле filePath");
@@ -97,5 +104,4 @@ public class FileWriteTool implements Tool<FileWriteTool.Input> {
             @ToolParam(description = "Full new content of the file")
             String content) {
     }
-
 }

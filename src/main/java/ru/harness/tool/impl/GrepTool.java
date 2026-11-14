@@ -1,12 +1,14 @@
 package ru.harness.tool.impl;
 
-import org.jspecify.annotations.Nullable;
-import ru.harness.tool.ToolContext;
-import org.springframework.ai.tool.annotation.ToolParam;
-import org.springframework.stereotype.Component;
+import ru.harness.permission.PathInspector;
+import ru.harness.permission.PermissionDecision;
 import ru.harness.tool.Tool;
+import ru.harness.tool.ToolContext;
 import ru.harness.tool.ToolResult;
 import ru.harness.tool.WorkspaceGuard;
+import org.jspecify.annotations.Nullable;
+import org.springframework.ai.tool.annotation.ToolParam;
+import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.nio.charset.MalformedInputException;
@@ -21,7 +23,6 @@ import java.util.stream.Stream;
 
 @Component
 public class GrepTool implements Tool<GrepTool.Input> {
-
     private static final int MAX_MATCHES = 100;
 
     private final WorkspaceGuard workspaceGuard;
@@ -45,8 +46,7 @@ public class GrepTool implements Tool<GrepTool.Input> {
     public String description() {
         return """
                 Searches inside files with a regular expression. Use this when you know
-                what the code says but not which file says it. To find a file by its name,
-                use Glob instead.
+                what the code says but not which file says it.
 
                 Usage:
                 - Output modes: FILES_WITH_MATCHES lists paths (default), CONTENT shows matching
@@ -60,6 +60,23 @@ public class GrepTool implements Tool<GrepTool.Input> {
     @Override
     public Class<Input> inputType() {
         return Input.class;
+    }
+
+
+    /**
+     * Поиск читает каталог: PermissionEvaluator вызывает Tool, Tool выбирает файловую проверку чтения.
+     * В ОРИГИНАЛЕ поиск ещё и прячет запрещённые файлы: шаблоны из запретов Read передаются
+     * поиску как список исключений, и модель не видит ни имён, ни строк из таких файлов.
+     * У нас проверяется только каталог, в котором ищем.
+     */
+    @Override
+    public PermissionDecision checkPermissions(Input input, ToolContext context) {
+        return PathInspector.checkRead(workspaceGuard, searchPath(input), context.permissions());
+    }
+
+    /** Если path не задан, ищем от корня проекта. */
+    private static String searchPath(Input input) {
+        return input.path() == null ? "." : input.path();
     }
 
     @Override
@@ -122,7 +139,6 @@ public class GrepTool implements Tool<GrepTool.Input> {
                 }
             }
         }
-
         return shown == 0 ? nothingFound(pattern) : ToolResult.ok(out.toString());
     }
 
@@ -208,5 +224,4 @@ public class GrepTool implements Tool<GrepTool.Input> {
             @Nullable @ToolParam(required = false, description = "Case insensitive search")
             Boolean ignoreCase) {
     }
-
 }

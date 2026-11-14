@@ -1,12 +1,14 @@
 package ru.harness.tool.impl;
 
-import org.jspecify.annotations.Nullable;
-import org.springframework.ai.tool.annotation.ToolParam;
-import org.springframework.stereotype.Component;
+import ru.harness.permission.PathInspector;
+import ru.harness.permission.PermissionDecision;
 import ru.harness.tool.Tool;
 import ru.harness.tool.ToolContext;
 import ru.harness.tool.ToolResult;
 import ru.harness.tool.WorkspaceGuard;
+import org.jspecify.annotations.Nullable;
+import org.springframework.ai.tool.annotation.ToolParam;
+import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.nio.charset.MalformedInputException;
@@ -74,6 +76,9 @@ public class FileReadTool implements Tool<FileReadTool.Input> {
 
     @Override
     public ToolResult call(Input input, ToolContext context) {
+        if (input.filePath() == null || input.filePath().isBlank()) {
+            return ToolResult.error("не указан файл: заполни поле filePath");
+        }
         Path pathToFile;
         try {
             pathToFile = workspaceGuard.resolve(input.filePath());
@@ -92,7 +97,7 @@ public class FileReadTool implements Tool<FileReadTool.Input> {
         } catch (MalformedInputException e) {
             return ToolResult.error("файл не текстовый: " + input.filePath());
         } catch (IOException e) {
-            return  ToolResult.error("не удалось прочитать %s: %s".formatted(input.filePath(), e.getMessage()));
+           return  ToolResult.error("не удалось прочитать %s: %s".formatted(input.filePath(), e.getMessage()));
         }
         context.readFileState().remember(pathToFile);
 
@@ -107,6 +112,11 @@ public class FileReadTool implements Tool<FileReadTool.Input> {
                     "в файле всего %d строк, запрошено начиная с %d".formatted(lines.size(), from));
         }
         return ToolResult.ok(render(lines,from,to));
+    }
+
+    @Override
+    public PermissionDecision checkPermissions(Input input, ToolContext context) {
+       return PathInspector.checkRead(workspaceGuard,input.filePath(),context.permissions());
     }
 
     public record Input(

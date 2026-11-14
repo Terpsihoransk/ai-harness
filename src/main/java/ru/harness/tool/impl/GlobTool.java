@@ -1,12 +1,14 @@
 package ru.harness.tool.impl;
 
-import org.jspecify.annotations.Nullable;
-import ru.harness.tool.ToolContext;
-import org.springframework.ai.tool.annotation.ToolParam;
-import org.springframework.stereotype.Component;
+import ru.harness.permission.PathInspector;
+import ru.harness.permission.PermissionDecision;
 import ru.harness.tool.Tool;
+import ru.harness.tool.ToolContext;
 import ru.harness.tool.ToolResult;
 import ru.harness.tool.WorkspaceGuard;
+import org.jspecify.annotations.Nullable;
+import org.springframework.ai.tool.annotation.ToolParam;
+import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -50,6 +52,25 @@ public class GlobTool implements Tool<GlobTool.Input> {
     @Override
     public Class<Input> inputType() {
         return Input.class;
+    }
+
+
+    /**
+     * Поиск читает каталог: PermissionEvaluator вызывает Tool, Tool выбирает файловую проверку чтения.
+     * В ОРИГИНАЛЕ поиск ещё и прячет запрещённые файлы: шаблоны из запретов Read передаются
+     * поиску как список исключений, и модель не видит ни имён, ни строк из таких файлов.
+     * У нас проверяется только каталог, в котором ищем.
+     */
+    @Override
+    public PermissionDecision checkPermissions(Input input, ToolContext context) {
+        return PathInspector.checkRead(workspaceGuard, searchPath(input), context.permissions());
+    }
+
+    /** Если path не задан, ищем от корня проекта. */
+    private static String searchPath(Input input) {
+        return input.path() == null ? "." : input.path();
+
+
     }
 
     @Override
@@ -96,10 +117,6 @@ public class GlobTool implements Tool<GlobTool.Input> {
 
     }
 
-    @Override
-    public String renderToolUseMessage(Input input) {
-        return input.pattern() == null ? tag() : tag() + " " + input.pattern();
-    }
 
     private static long modifiedAt(Path path) {
         try {
@@ -114,21 +131,23 @@ public class GlobTool implements Tool<GlobTool.Input> {
      * то есть файл в корне поиска таким шаблоном не находится. Модель же пишет его,
      * подразумевая «везде», — поэтому проверяем заодно и вариант без префикса.
      */
-    static PathMatcher matcherFor(String pattern) {
+     static PathMatcher matcherFor(String pattern) {
         PathMatcher asWritten = FileSystems.getDefault().getPathMatcher("glob:" + pattern);
         if (!pattern.startsWith("**/")) {
             return asWritten;
         }
-
-        // т.к. в руте мы не ищем по дефолту, звёздочки нужно убрать
         PathMatcher atRoot = FileSystems.getDefault().getPathMatcher("glob:" + pattern.substring(3));
         return path -> asWritten.matches(path) || atRoot.matches(path);
     }
 
+    @Override
+    public String renderToolUseMessage(Input input) {
+        return input.pattern() == null ? tag() : tag() + " " + input.pattern();
+    }
 
     // Так выглядит вызов от модели:
-    //   {"pattern": "**/ToolRegistry*"}
-    //   {"pattern": "*.java", "path": "src/main/java"}
+//   {"pattern": "**/ToolRegistry*"}
+//   {"pattern": "*.java", "path": "src/main/java"}
     public record Input(
             @ToolParam(description = "Glob pattern, for example **/*.java or **/Tool*.java")
             String pattern,
@@ -136,5 +155,4 @@ public class GlobTool implements Tool<GlobTool.Input> {
             @Nullable @ToolParam(required = false, description = "Directory to search in, defaults to project root")
             String path) {
     }
-
 }

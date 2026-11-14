@@ -13,15 +13,19 @@ spring:
         think: false # выключаем рассуждения
         temperature: 0.2
         model: qwen3.5:4b
+        num-ctx: 16384
 
 harness.agent:
   workspace-root: .
   max-turns: 20
 
+
 logging:
   level:
     root: WARN
-    ru.harness: INFO
-    org.springframework.ai: INFO
+    com.harness: INFO
   pattern:
     console: "%msg%n"
+harness:
+  permission:
+    mode: accept_edits

@@ -1,12 +1,14 @@
 package ru.harness.tool.impl;
 
-import org.jspecify.annotations.Nullable;
-import org.springframework.ai.tool.annotation.ToolParam;
-import org.springframework.stereotype.Component;
+import ru.harness.permission.PathInspector;
+import ru.harness.permission.PermissionDecision;
 import ru.harness.tool.Tool;
 import ru.harness.tool.ToolContext;
 import ru.harness.tool.ToolResult;
 import ru.harness.tool.WorkspaceGuard;
+import org.jspecify.annotations.Nullable;
+import org.springframework.ai.tool.annotation.ToolParam;
+import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -34,9 +36,6 @@ public class FileEditTool implements Tool<FileEditTool.Input> {
                 Usage:
                 - You MUST use Read on the file first. This tool fails if you did not
                 - oldString must match the file exactly, whitespace included
-                - Do not paste the `cat -n` line-number prefix from Read output into oldString
-                - Line endings are normalised: a fragment with LF matches a file stored with
-                  CRLF, so you never have to guess the newline style
                 - The edit FAILS if oldString is not unique in the file. Either provide
                   a larger string with more surrounding context to make it unique,
                   or set replaceAll to change every instance
@@ -59,7 +58,10 @@ public class FileEditTool implements Tool<FileEditTool.Input> {
         return input.filePath() == null ? tag() : tag() + " " + input.filePath();
     }
 
-
+    @Override
+    public PermissionDecision checkPermissions(Input input, ToolContext context) {
+        return PathInspector.checkWrite(workspaceGuard,input.filePath(),context.permissions());
+    }
 
     @Override
     public ToolResult call(Input input, ToolContext context) {
@@ -94,19 +96,10 @@ public class FileEditTool implements Tool<FileEditTool.Input> {
         } catch (IOException e) {
             return ToolResult.error("не удалось прочитать %s: %s".formatted(input.filePath(), e.getMessage()));
         }
-        // Модель видит файл через Read, а Read срезает разделители строк: в тексте от модели
-        // всегда LF, тогда как на диске файл может лежать в CRLF (git на Windows). Сравниваем
-        // и правим в нормализованном виде, а при записи возвращаем файлу его родной стиль.
-        String newline = newlineStyle(before);
-        String haystack = before.replace("\r\n", "\n");
-        String oldText = input.oldString().replace("\r\n", "\n");
-        String newText = input.newString().replace("\r\n", "\n");
-
-        int found = occurrences(haystack, oldText);
+        int found = occurrences(before, input.oldString());
         if (found == 0) {
             return ToolResult.error(("текст не найден в %s. Прочитай файл инструментом Read"
-                    + " и скопируй фрагмент точно — без номера строки и таба из его вывода")
-                    .formatted(input.filePath()));
+                    + " и скопируй фрагмент точно").formatted(input.filePath()));
         }
         boolean replaceAll = Boolean.TRUE.equals(input.replaceAll());
         if (found > 1 && !replaceAll) {
@@ -114,10 +107,7 @@ public class FileEditTool implements Tool<FileEditTool.Input> {
                     + " чтобы фрагмент стал уникальным, или укажи replaceAll")
                     .formatted(found, input.filePath()));
         }
-        String after = haystack.replace(oldText, newText);
-        if ("\r\n".equals(newline)) {
-            after = after.replace("\n", "\r\n");
-        }
+        String after = before.replace(input.oldString(), input.newString());
         try {
             Files.writeString(file, after);
         } catch (IOException e) {
@@ -126,11 +116,6 @@ public class FileEditTool implements Tool<FileEditTool.Input> {
         context.readFileState().remember(file);
 
         return ToolResult.ok("заменено в %s, вхождений: %d".formatted(input.filePath(), replaceAll ? found : 1));
-    }
-
-    /** В каком стиле файл лежит на диске — в том же и записываем обратно. */
-    private static String newlineStyle(String content) {
-        return content.contains("\r\n") ? "\r\n" : "\n";
     }
 
     private static int occurrences(String haystack, String needle) {
@@ -159,5 +144,4 @@ public class FileEditTool implements Tool<FileEditTool.Input> {
             @Nullable @ToolParam(required = false, description = "Replace every occurrence instead of failing on duplicates")
             Boolean replaceAll) {
     }
-
 }

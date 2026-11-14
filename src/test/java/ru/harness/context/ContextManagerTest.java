@@ -1,5 +1,6 @@
 package ru.harness.context;
 
+import ru.harness.TestPermissionConfig;
 import ru.harness.agent.AgentProperties;
 import ru.harness.tool.FileStateCache;
 import ru.harness.tool.ToolRegistry;
@@ -14,19 +15,23 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Сборка контекста целиком: что попадает в промпт, чего в нём может не быть
- * и сколько раз он считается.
+ * Сборка контекста целиком: что попадает в промпт, чего в нём может не быть и сколько раз он
+ * считается.
  */
 class ContextManagerTest {
 
-    @TempDir
-    Path folder;
+    @TempDir Path folder;
 
     /** Пустая папка: не репозиторий, {@code HARNESS.md} нет. */
     private ContextManager manager() {
         AgentProperties properties = new AgentProperties(20, folder.toString(), true);
-        ToolRegistry registry = new ToolRegistry(List.of(), event -> {
-        }, new FileStateCache());
+        ToolRegistry registry =
+                TestPermissionConfig.registry(
+                        List.of(),
+                        event -> {},
+                        new FileStateCache(),
+                        TestPermissionConfig.permissive(),
+                        TestPermissionConfig.allowOnce());
         return new ContextManager(
                 new GitStatusProvider(properties),
                 new ProjectMemoryLoader(properties),
@@ -42,8 +47,8 @@ class ContextManagerTest {
     }
 
     /**
-     * Ни репозитория, ни памяти проекта — и это не ошибка: секций просто нет,
-     * а агент продолжает работать.
+     * Ни репозитория, ни памяти проекта — и это не ошибка: секций просто нет, а агент продолжает
+     * работать.
      */
     @Test
     void безРепозиторияИПамятиСекцийПростоНет() {
@@ -54,7 +59,8 @@ class ContextManagerTest {
 
     @Test
     void памятьПроектаУезжаетВПромпт() throws IOException {
-        Files.writeString(folder.resolve(ProjectMemoryLoader.MEMORY_FILE),
+        Files.writeString(
+                folder.resolve(ProjectMemoryLoader.MEMORY_FILE),
                 "Собирать через mvnw, Maven в PATH нет.\n");
 
         String prompt = manager().systemPrompt();
@@ -63,9 +69,8 @@ class ContextManagerTest {
     }
 
     /**
-     * Промпт считается один раз за сессию. Проверяем не скорость, а <b>неизменность</b>:
-     * он уезжает в модель при каждом запросе, и если бы менялся от хода к ходу,
-     * поплыло бы поведение агента.
+     * Промпт считается один раз за сессию. Проверяем не скорость, а <b>неизменность</b>: он уезжает
+     * в модель при каждом запросе, и если бы менялся от хода к ходу, поплыло бы поведение агента.
      */
     @Test
     void промптНеМеняетсяМеждуХодами() throws IOException {

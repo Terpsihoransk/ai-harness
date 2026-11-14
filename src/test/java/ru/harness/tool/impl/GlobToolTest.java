@@ -1,6 +1,8 @@
 package ru.harness.tool.impl;
 
+import ru.harness.TestPermissionConfig;
 import ru.harness.agent.AgentProperties;
+import ru.harness.permission.PermissionBehavior;
 import ru.harness.tool.FileStateCache;
 import ru.harness.tool.ToolContext;
 import ru.harness.tool.ToolResult;
@@ -17,16 +19,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class GlobToolTest {
 
-    @TempDir
-    Path workspace;
+    @TempDir Path workspace;
 
-    private final ToolContext context = new ToolContext(new FileStateCache());
+    private final ToolContext context = TestPermissionConfig.context(new FileStateCache());
 
     private GlobTool tool;
 
     @BeforeEach
     void setUp() {
-        tool = new GlobTool(new WorkspaceGuard(new AgentProperties(20, workspace.toString(), true)));
+        tool =
+                new GlobTool(
+                        new WorkspaceGuard(new AgentProperties(20, workspace.toString(), true)));
     }
 
     private ToolResult glob(String pattern, String path) {
@@ -53,9 +56,9 @@ class GlobToolTest {
     }
 
     /**
-     * {@code PathMatcher} из JDK требует для {@code **}{@code /} хотя бы один разделитель,
-     * то есть файл в корне поиска таким шаблоном не находится. Модель об этом не знает
-     * и пишет {@code **}{@code /*.java}, подразумевая «везде», — лечим на своей стороне.
+     * {@code PathMatcher} из JDK требует для {@code **}{@code /} хотя бы один разделитель, то есть
+     * файл в корне поиска таким шаблоном не находится. Модель об этом не знает и пишет {@code
+     * **}{@code /*.java}, подразумевая «везде», — лечим на своей стороне.
      */
     @Test
     void шаблонСоЗвёздочкамиНаходитИФайлВКорне() throws IOException {
@@ -71,11 +74,13 @@ class GlobToolTest {
         create("old.java");
         create("new.java");
         Files.setLastModifiedTime(
-                workspace.resolve("old.java"), java.nio.file.attribute.FileTime.fromMillis(1_000_000));
+                workspace.resolve("old.java"),
+                java.nio.file.attribute.FileTime.fromMillis(1_000_000));
 
         ToolResult result = glob("*.java", null);
 
-        assertThat(result.content().indexOf("new.java")).isLessThan(result.content().indexOf("old.java"));
+        assertThat(result.content().indexOf("new.java"))
+                .isLessThan(result.content().indexOf("old.java"));
     }
 
     @Test
@@ -109,17 +114,16 @@ class GlobToolTest {
     }
 
     @Test
-    void выходЗаРабочуюПапкуЗапрещён() {
-        ToolResult result = glob("*.java", "../..");
-
-        assertThat(result.error()).isTrue();
-        assertThat(result.content()).contains("вне рабочей папки");
+    void путьСнаружиТребуетРазрешенияДоВыполнения() {
+        var decision = tool.checkPermissions(new GlobTool.Input("*.java", ".."), context);
+        assertThat(decision.behavior()).isEqualTo(PermissionBehavior.ASK);
+        assertThat(decision.reason()).contains("вне рабочих каталогов");
     }
 
     /**
-     * Папки нет — это ошибка поиска, а не пустая выдача: ответ «ничего не найдено»
-     * сказал бы агенту, что искать было где. Тот же ответ, что и у {@link GrepTool}:
-     * язык шаблонов у них общий, значит и причины отказа должны совпадать.
+     * Папки нет — это ошибка поиска, а не пустая выдача: ответ «ничего не найдено» сказал бы
+     * агенту, что искать было где. Тот же ответ, что и у {@link GrepTool}: язык шаблонов у них
+     * общий, значит и причины отказа должны совпадать.
      */
     @Test
     void shouldFailWhenSearchDirectoryDoesNotExist() {
