@@ -25,7 +25,9 @@ public class FileReadTool implements Tool<FileReadTool.Input> {
         this.workspaceGuard = workspaceGuard;
     }
 
-    /** Формат {@code cat -n}: номер строки, табуляция, содержимое. */
+    /**
+     * Формат {@code cat -n}: номер строки, табуляция, содержимое.
+     */
     private String render(List<String> lines, int from, int to) {
         StringBuilder out = new StringBuilder();
         for (int i = from; i <= to; i++) {
@@ -90,10 +92,10 @@ public class FileReadTool implements Tool<FileReadTool.Input> {
         } catch (MalformedInputException e) {
             return ToolResult.error("файл не текстовый: " + input.filePath());
         } catch (IOException e) {
-           return  ToolResult.error("не удалось прочитать %s: %s".formatted(input.filePath(), e.getMessage()));
+            return ToolResult.error("не удалось прочитать %s: %s".formatted(input.filePath(), e.getMessage()));
         }
 
-        if(lines.isEmpty()) {
+        if (lines.isEmpty()) {
             return ToolResult.ok("файл пустой");
         }
         int from = Math.max(1, input.offset() == null ? 1 : input.offset());
@@ -103,7 +105,7 @@ public class FileReadTool implements Tool<FileReadTool.Input> {
             return ToolResult.error(
                     "в файле всего %d строк, запрошено начиная с %d".formatted(lines.size(), from));
         }
-        return ToolResult.ok(render(lines,from,to));
+        return ToolResult.ok(render(lines, from, to));
     }
 
     public record Input(
