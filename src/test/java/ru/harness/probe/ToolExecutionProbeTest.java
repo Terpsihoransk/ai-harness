@@ -12,7 +12,9 @@ import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
+import ru.harness.TestPermissionConfig;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -29,6 +31,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @Tag("ollama")
 @SpringBootTest
+@Import(TestPermissionConfig.class)
 @ActiveProfiles("test")
 class ToolExecutionProbeTest {
 
@@ -81,4 +84,5 @@ class ToolExecutionProbeTest {
                 .as("Spring AI 2.0 не должен исполнять инструмент за нас — цикл наш")
                 .hasValue(0);
     }
+
 }

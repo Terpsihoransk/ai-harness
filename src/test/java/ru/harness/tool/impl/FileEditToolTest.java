@@ -1,13 +1,15 @@
 package ru.harness.tool.impl;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import ru.harness.TestPermissionConfig;
 import ru.harness.agent.AgentProperties;
+import ru.harness.permission.PermissionBehavior;
 import ru.harness.tool.FileStateCache;
 import ru.harness.tool.ToolContext;
 import ru.harness.tool.ToolResult;
 import ru.harness.tool.WorkspaceGuard;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -17,17 +19,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class FileEditToolTest {
 
-    @TempDir
-    Path workspace;
+    @TempDir Path workspace;
 
     private final FileStateCache cache = new FileStateCache();
-    private final ToolContext context = new ToolContext(cache);
+    private final ToolContext context = TestPermissionConfig.context(cache);
 
     private FileEditTool tool;
 
     @BeforeEach
     void setUp() {
-        tool = new FileEditTool(new WorkspaceGuard(new AgentProperties(20, workspace.toString(), true)));
+        tool =
+                new FileEditTool(
+                        new WorkspaceGuard(new AgentProperties(20, workspace.toString(), true)));
     }
 
     private ToolResult edit(String path, String oldString, String newString, Boolean replaceAll) {
@@ -52,8 +55,8 @@ class FileEditToolTest {
     }
 
     /**
-     * Главный инвариант урока. Модель не видит диск: если файл не читали,
-     * она правит содержимое, которое придумала.
+     * Главный инвариант урока. Модель не видит диск: если файл не читали, она правит содержимое,
+     * которое придумала.
      */
     @Test
     void непрочитанныйФайлПравитьНельзя() throws IOException {
@@ -69,8 +72,10 @@ class FileEditToolTest {
     void изменившийсяПослеЧтенияФайлПравитьНельзя() throws IOException {
         Path file = прочитанный("Agent.java", "class Agent {}\n");
         Files.writeString(file, "class Agent { void run() {} }\n");
-        Files.setLastModifiedTime(file, java.nio.file.attribute.FileTime.fromMillis(
-                Files.getLastModifiedTime(file).toMillis() + 5_000));
+        Files.setLastModifiedTime(
+                file,
+                java.nio.file.attribute.FileTime.fromMillis(
+                        Files.getLastModifiedTime(file).toMillis() + 5_000));
 
         ToolResult result = edit("Agent.java", "class Agent {", "class Robot {", null);
 
@@ -79,8 +84,8 @@ class FileEditToolTest {
     }
 
     /**
-     * Два одинаковых фрагмента — мы не угадываем, какой из них имелся в виду.
-     * Текст ошибки называет оба выхода: уточнить фрагмент или разрешить замену всех.
+     * Два одинаковых фрагмента — мы не угадываем, какой из них имелся в виду. Текст ошибки называет
+     * оба выхода: уточнить фрагмент или разрешить замену всех.
      */
     @Test
     void неуникальныйФрагментЭтоОшибкаСДвумяВыходами() throws IOException {
@@ -104,8 +109,8 @@ class FileEditToolTest {
     }
 
     /**
-     * Промах правки ничего не стоит: файл цел, а модель получает текст,
-     * по которому видно, что делать дальше.
+     * Промах правки ничего не стоит: файл цел, а модель получает текст, по которому видно, что
+     * делать дальше.
      */
     @Test
     void ненайденныйТекстЭтоОшибкаАФайлЦел() throws IOException {
@@ -147,10 +152,11 @@ class FileEditToolTest {
     }
 
     @Test
-    void выходЗаРабочуюПапкуЗапрещён() {
-        ToolResult result = edit("../../чужое.java", "a", "b", null);
-
-        assertThat(result.error()).isTrue();
-        assertThat(result.content()).contains("вне рабочей папки");
+    void путьСнаружиТребуетРазрешенияДоВыполнения() {
+        var decision =
+                tool.checkPermissions(
+                        new FileEditTool.Input("../outside.txt", "a", "b", null), context);
+        assertThat(decision.behavior()).isEqualTo(PermissionBehavior.ASK);
+        assertThat(decision.reason()).contains("вне рабочих каталогов");
     }
 }

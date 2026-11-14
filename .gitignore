@@ -37,3 +37,5 @@ build/
 /.env
 /plans/
 /.tmp-cfg/
+out/
+.harness/permissions.local.yaml

@@ -1,5 +1,6 @@
 package ru.harness.context;
 
+import ru.harness.TestPermissionConfig;
 import ru.harness.agent.AgentProperties;
 import ru.harness.tool.FileStateCache;
 import ru.harness.tool.Tool;
@@ -43,8 +44,14 @@ class SystemPromptBuilderTest {
 
     private SystemPromptBuilder builder(boolean personality) {
         ToolRegistry registry =
-                new ToolRegistry(List.of(new FakeTool()), БЕЗ_СОБЫТИЙ, new FileStateCache());
-        return new SystemPromptBuilder(registry, new AgentProperties(20, ".", personality));
+                TestPermissionConfig.registry(
+                        List.of(new FakeTool()),
+                        БЕЗ_СОБЫТИЙ,
+                        new FileStateCache(),
+                        TestPermissionConfig.permissive(),
+                        TestPermissionConfig.allowOnce());
+        return new SystemPromptBuilder(
+                registry, new AgentProperties(20, ".", personality));
     }
 
     @Test

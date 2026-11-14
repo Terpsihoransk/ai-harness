@@ -32,15 +32,15 @@ class TargetPracticeMissionTest {
     /** Пример из javadoc мишени — тот, который звучит в кадре. */
     @Test
     void packageOfReturnsPackageAndClassName() throws Exception {
-        assertLocation("src/main/java/com/harness/agent/Agent.java",
-                "com.harness.agent", "Agent");
+        assertLocation("src/main/java/ru/harness/agent/Agent.java",
+                "ru.harness.agent", "Agent");
     }
 
     /** Второй путь: ловим ответ, подогнанный под единственный пример из javadoc. */
     @Test
     void packageOfWorksForNestedPackage() throws Exception {
         assertLocation("src/main/java/com/harness/tool/impl/GrepTool.java",
-                "com.harness.tool.impl", "GrepTool");
+                "ru.harness.tool.impl", "GrepTool");
     }
 
     private static void assertLocation(String sourcePath, String packageName, String className)
@@ -63,9 +63,9 @@ class TargetPracticeMissionTest {
     /** Класса может не быть: тогда агент до него просто не дошёл. */
     private static Class<?> sourceLocationClass() {
         try {
-            return Class.forName("com.harness.demo.SourceLocation");
+            return Class.forName("ru.harness.demo.SourceLocation");
         } catch (ClassNotFoundException notWritten) {
-            throw new AssertionError("класса com.harness.demo.SourceLocation нет:"
+            throw new AssertionError("класса ru.harness.demo.SourceLocation нет:"
                     + " агент его не завёл", notWritten);
         }
     }
