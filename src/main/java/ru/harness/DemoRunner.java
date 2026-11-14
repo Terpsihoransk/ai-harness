@@ -20,7 +20,6 @@ public class DemoRunner implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        System.out.println(agent.run("В каком файле объявлен класс ToolRegistry? Назови путь и скажи, что этот класс делает."));
-        System.out.println(agent.run("А кто слушает ToolCallFinished? Найди файл."));
+        System.out.println(agent.run("В классе TargetPractice не реализован метод packageOf. Найди файл, прочитай его и реализуй этот метод."));
     }
 }
