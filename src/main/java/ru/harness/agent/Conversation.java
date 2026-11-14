@@ -1,4 +1,4 @@
-package ru.harness;
+package ru.harness.agent;
 
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;

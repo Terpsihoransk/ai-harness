@@ -26,6 +26,7 @@ services:
       timeout: 5s
       retries: 5
 
+  # Ждёт пока поднимется ollama и скачивает модель
   ollama-pull-model:
     image: ollama/ollama:latest
     container_name: harness-ollama-pull
