@@ -49,7 +49,11 @@ public class Agent {
         return chatModel.getOptions().getModel();
     }
 
-    public Agent(ChatModel chatModel, ApplicationEventPublisher publisher, ToolRegistry toolRegistry, SpringAiToolAdapter springAiToolAdapter, AgentProperties agentProperties) {
+    public Agent(ChatModel chatModel,
+                 ApplicationEventPublisher publisher,
+                 ToolRegistry toolRegistry,
+                 SpringAiToolAdapter springAiToolAdapter,
+                 AgentProperties agentProperties) {
         this.chatModel = chatModel;
         this.publisher = publisher;
         this.toolRegistry = toolRegistry;

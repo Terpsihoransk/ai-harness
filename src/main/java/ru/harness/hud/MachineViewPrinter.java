@@ -1,7 +1,9 @@
 package ru.harness.hud;
 
+import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.MessageType;
+import org.springframework.ai.chat.messages.ToolResponseMessage;
 import org.springframework.stereotype.Component;
 
 import java.io.PrintStream;
@@ -42,19 +44,16 @@ public class MachineViewPrinter {
 
     private static final String CONTEXT_FOOTER = Ansi.dim("  └─ ПЕРЕДАНО В НЕЙРОПРОЦЕССОР");
 
-    /**
-     * Колонка, до которой тянутся точки в boot-логе.
-     */
+    /** Колонка, до которой тянутся точки в boot-логе. */
     private static final int LABEL_WIDTH = 26;
 
-    /**
-     * Ширина текстовой колонки в панели контекста.
-     */
+    /** Столько строк показываем от одной реплики, дальше — «… ещё N строк». */
+    private static final int MAX_ENTRY_LINES = 3;
+
+    /** Ширина текстовой колонки в панели контекста. */
     private static final int CONTEXT_WIDTH = 64;
 
-    /**
-     * Колонка, до которой выравнивается «[1] СОЗДАТЕЛЬ ·····».
-     */
+    /** Колонка, до которой выравнивается «[1] СОЗДАТЕЛЬ ·····». */
     private static final int ROLE_WIDTH = 18;
 
     private final PrintStream out;
@@ -64,16 +63,12 @@ public class MachineViewPrinter {
         this(new PrintStream(System.out, true, StandardCharsets.UTF_8));
     }
 
-    /**
-     * Для тестов: вывод в буфер вместо консоли.
-     */
+    /** Для тестов: вывод в буфер вместо консоли. */
     MachineViewPrinter(PrintStream out) {
         this.out = out;
     }
 
-    /**
-     * Boot-последовательность целиком: шапка, строки подсистем, статус миссии.
-     */
+    /** Boot-последовательность целиком: шапка, строки подсистем, статус миссии. */
     void showBootLog(List<BootLine> lines) {
         String subsystems = lines.stream().map(line -> toString(line)).collect(joining(NEW_LINE));
 
@@ -85,8 +80,9 @@ public class MachineViewPrinter {
     }
 
     /**
-     * Модель решила взять инструмент. Имя для модели и описание предстоящего вызова
-     * пришли из ядра фактами — «ЦЕЛЬ ОБНАРУЖЕНА» это уже наша метафора.
+     * Как назвать себя, решает сам инструмент: он присылает готовую строку вида
+     * {@code [READ] Tool.java}. Экран её не разбирает, только обрамляет —
+     * «ЦЕЛЬ ОБНАРУЖЕНА» это уже наша метафора.
      */
     void showToolCallStarted(String target) {
         print(Ansi.red("> ЦЕЛЬ ОБНАРУЖЕНА: ") + target + Ansi.red(" — ЗАХВАТ"));
@@ -95,13 +91,25 @@ public class MachineViewPrinter {
     /**
      * Ошибка инструмента печатается в полный голос. Для модели она обычный результат,
      * но создателю за пультом надо видеть, что машина промахнулась.
+     *
+     * <p>Удачный вызов показывает ещё и начало результата: решение агент принимает
+     * не по времени работы, а по тому, что инструмент вернул. Сколько строк
+     * показывать, решено не здесь — экран печатает то, что пришло в событии.
      */
     void showToolCallFinished(boolean error, String preview, Duration duration) {
         if (error) {
             print(Ansi.bold(Ansi.red("> ПРОМАХ: ")) + preview);
             return;
         }
-        print(Ansi.dim("> АНАЛИЗ ЗАВЕРШЁН · " + duration.toMillis() + " мс"));
+        String head = "> АНАЛИЗ ЗАВЕРШЁН · " + duration.toMillis() + " мс";
+        if (preview.isBlank()) {
+            print(Ansi.dim(head));
+            return;
+        }
+        List<String> block = new ArrayList<>();
+        block.add(Ansi.dim(head + " · В НЕЙРОПРОЦЕССОР:"));
+        preview.lines().forEach(line -> block.add(rail(line)));
+        print(block);
     }
 
     void showTurnLimitReached(int maxTurns) {
@@ -138,9 +146,7 @@ public class MachineViewPrinter {
         print(panel);
     }
 
-    /**
-     * Единственное место, которое трогает поток вывода. Блок уходит целиком, а не построчно.
-     */
+    /** Единственное место, которое трогает поток вывода. Блок уходит целиком, а не построчно. */
     private void print(String... blocks) {
         out.println(String.join(NEW_LINE, blocks));
     }
@@ -190,25 +196,21 @@ public class MachineViewPrinter {
         return "%s %s %s   %s".formatted(Ansi.red("> " + label), Ansi.dim(dots), status, Ansi.dim("(" + detail + ")"));
     }
 
-    /**
-     * Одна реплика: «[1] СОЗДАТЕЛЬ ····· текст», продолжение — под текстом, а не под номером.
-     */
+    /** Одна реплика: «[1] СОЗДАТЕЛЬ ····· текст», продолжение — под текстом, а не под номером. */
     private List<String> historyEntry(int number, Message message) {
         String head = "[%d] %s ".formatted(number, role(message.getMessageType()));
         String prefix = head + ".".repeat(Math.max(1, ROLE_WIDTH - head.length())) + " ";
         String indent = " ".repeat(prefix.length());
 
         List<String> lines = new ArrayList<>();
-        List<String> wrapped = wrap(text(message));
+        List<String> wrapped = clamp(wrap(text(message)));
         for (int i = 0; i < wrapped.size(); i++) {
             lines.add(rail(i == 0 ? Ansi.dim(prefix) + wrapped.get(i) : indent + wrapped.get(i)));
         }
         return lines;
     }
 
-    /**
-     * Левая направляющая панели. Правого края нет намеренно: он бы разъезжался на любой ширине окна.
-     */
+    /** Левая направляющая панели. Правого края нет намеренно: он бы разъезжался на любой ширине окна. */
     private static String rail(String content) {
         return Ansi.dim("  │ ") + content;
     }
@@ -226,13 +228,37 @@ public class MachineViewPrinter {
         };
     }
 
+    /**
+     * Текст реплики для панели. У вызова инструмента и у его ответа содержимое лежит
+     * не в {@code getText()}, поэтому раньше такие реплики молча пропадали, а номера
+     * шли «1, 6, 7». В контекст они уехали — значит, и на экране должны быть.
+     */
     private static String text(Message message) {
+        if (message instanceof AssistantMessage assistant && assistant.hasToolCalls()) {
+            return assistant.getToolCalls().stream()
+                    .map(call -> call.name() + " " + call.arguments())
+                    .collect(joining("; "));
+        }
+        if (message instanceof ToolResponseMessage toolResponse) {
+            return toolResponse.getResponses().stream()
+                    .map(response -> response.responseData())
+                    .collect(joining("; "));
+        }
         return message.getText() == null ? "" : message.getText();
     }
 
-    /**
-     * Перенос по словам: слово целее строки. Длиннее ширины — режем, иначе панель разъедется.
-     */
+    /** Длинную реплику сворачиваем: панель показывает состав контекста, а не его целиком. */
+    private static List<String> clamp(List<String> lines) {
+        if (lines.size() <= MAX_ENTRY_LINES) {
+            return lines;
+        }
+        List<String> clamped = new ArrayList<>(lines.subList(0, MAX_ENTRY_LINES));
+        clamped.add(Ansi.dim("… ещё %s".formatted(
+                plural(lines.size() - MAX_ENTRY_LINES, "строка", "строки", "строк"))));
+        return clamped;
+    }
+
+    /** Перенос по словам: слово целее строки. Длиннее ширины — режем, иначе панель разъедется. */
     private static List<String> wrap(String text) {
         List<String> lines = new ArrayList<>();
         for (String paragraph : text.lines().toList()) {
@@ -252,4 +278,5 @@ public class MachineViewPrinter {
         }
         return lines;
     }
+
 }
