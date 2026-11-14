@@ -44,7 +44,10 @@ public class ToolRegistry {
         publisher.publishEvent(new AgentEvent.ToolCallStarted(toolName, describeCall(tool, arguments)));
         Instant toolStartedAt = Instant.now();
         ToolResult toolResult = invoke(tool, arguments);
-        publisher.publishEvent(new AgentEvent.ToolCallFinished(toolName,toolResult.error(),toolResult.preview(120), Duration.between(toolStartedAt, Instant.now())));
+        publisher.publishEvent(new AgentEvent.ToolCallFinished(
+                toolName, toolResult.error(), toolResult.preview(120), Duration.between(toolStartedAt, Instant.now())
+        ));
+
         return toolResult;
     }
 
