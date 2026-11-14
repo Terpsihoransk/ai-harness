@@ -6,10 +6,7 @@ import org.springframework.stereotype.Component;
 import ru.harness.agent.Agent;
 
 /**
- * Сценарий текущего урока. Единственный файл, который меняется «до» урока —
- * всё остальное мы дописываем по ходу.
- *
- * <p>Урок 1: хотим просто поговорить с агентом. Пока не с чем: класса Agent нет.
+ * Demo режим, в котором можно протестировать что ответит модель
  */
 @Component
 @Profile("!test")
@@ -23,6 +20,7 @@ public class DemoRunner implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        System.out.println(agent.run("какая версия Java указана в проекте. Ответь одним предложением"));
+        System.out.println(agent.run("В каком файле объявлен класс ToolRegistry? Назови путь и скажи, что этот класс делает."));
+        System.out.println(agent.run("А кто слушает ToolCallFinished? Найди файл."));
     }
 }
